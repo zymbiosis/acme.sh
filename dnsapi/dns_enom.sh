@@ -52,7 +52,7 @@ dns_enom_add() {
   hostData="$response"
   _debug hostData "$hostData"
 
-  if [ -z "$response" ] || [! _contains "${response}" 'error']; then
+  if [ -z "$response" ] || [ ! "${response}" ~= "error" ]; then
     _err "Unable to retrieve host records"
     return 0
   fi
@@ -94,7 +94,7 @@ dns_enom_add() {
   _info "Adding TXT record to ${fulldomain}"
   _enom_rest GET "SetHosts" "$postData"
 
-  if ! _contains "${response}" 'error'; then
+  if [[ $response =~ *"error"* ]]; then
     return 0
   fi
   _err "Could not create resource record, check logs"
