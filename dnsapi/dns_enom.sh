@@ -59,7 +59,9 @@ dns_enom_add() {
 
   # Now lets put together the query string for setting the hosts
   hostnameNum=0
+  maxHostnameNum=0
   postData=""
+  isTxtSet=0
   for line in $hostData
   do
     if [ ! "$line" = "${line#HostName}" ] || 
@@ -70,6 +72,7 @@ dns_enom_add() {
       #_debug line "$line"
       lineKey=$(echo "$line" | sed -r "s/=(.*)//")
       lineHostname=$(echo "$line" | sed -r "s/HostName[0-9]+=//")
+      maxHostnameNum=$(echo "$lineKey" | sed -r "s/[^0-9]*//g")
 
       #Check to see if this is an existing acme challenge, if so get the number
       if [ "$lineHostname" = "$acme_Hostname" ]; then
@@ -80,6 +83,7 @@ dns_enom_add() {
       #If the number for an existing acme challenge exists, then update
       if [ "$lineKey" = "Address$hostnameNum" ]; then
         line="Address$hostnameNum=$txtvalue"
+        isTxtSet=1
       fi
 
       #echo "$postData&$line"
@@ -88,18 +92,28 @@ dns_enom_add() {
     fi
   done
 
+  if [ $isTxtSet = 0 ]; then
+    line="HostName$(($maxHostnameNum+1))=$acme_Hostname"
+    postData="$postData&$line"
+    line="Address$(($maxHostnameNum+1))=$txtvalue"
+    postData="$postData&$line"
+    line="RecordType$(($maxHostnameNum+1))=TXT"
+    postData="$postData&$line"
+  fi
+
   postData="uid=${ENOM_Username}&pw=${ENOM_Password}&SLD=${sld}&TLD=${tld}${postData}"
   _debug postData "$postData"
 
   _info "Adding TXT record to ${fulldomain}"
   _enom_rest GET "SetHosts" "$postData"
 
-  if [[ $response =~ *"error"* ]]; then
+  if [ $response =~ "error" ]; then
+    _err "Could not create resource record, check logs"
+    _err "${response}"
+    return 1
+  else
     return 0
   fi
-  _err "Could not create resource record, check logs"
-  _err "${response}"
-  return 1
 }
 
 
